@@ -69,6 +69,7 @@ router.post('/api/searchgoods', (req, res) => {
             sqlStr += " OR goods_name LIKE ";
         }
     });
+	console.log(sqlStr)
     conn.query(sqlStr, (error, results, fields) => {
         results = JSON.parse(JSON.stringify(results));
         if (!error && results.length) {
@@ -201,6 +202,7 @@ router.get('/api/alladmins', (req, res) => {
 });
 
 
+//新加接口
 /**
  * 4、	查询客户订单信息
  */
@@ -218,7 +220,175 @@ router.get('/api/orderList', (req, res) => {
     });
 });
 
+//获取商品
+router.get('/api/goodsList', (req, res) => {
+    let orderId = req.query.orderId
+    let querySqlStr = "SELECT * FROM `order_goods` as og INNER JOIN recommend as r  on  r.goods_id = og.goods_id WHERE og.order_id = ? ";
+    conn.query(querySqlStr, [orderId], (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '请求数据失败' });
+        } else {
+            results = JSON.parse(JSON.stringify(results));
+            res.json({ success_code: 200, message: results });
+        }
+    });
+});
 
+///3.	查询客户信息
+router.get('/api/getUser', (req, res) => {
+    let userId = req.query.userId
+    let querySqlStr = "SELECT * FROM `user_info` id = ? ";
+    conn.query(querySqlStr, [userId], (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '请求数据失败' });
+        } else {
+            results = JSON.parse(JSON.stringify(results));
+            res.json({ success_code: 200, message: results });
+        }
+    });
+});
+
+//添加评论/回复
+router.get('/api/reply', (req, res) => {
+    let userId = req.query.userId
+    let text = req.query.text
+    let username = req.query.username
+    let commentsid = req.query.commentsid
+    let goodsid = req.query.goods_id     //对那个商品评论
+    let superiorid = req.query.superiorid   //上级id，回复评论需要传，新加评论不传，这个id是当前表的id
+    let data = [text, commentsid, userId, username, goodsid];
+    // 添加评论
+    // http://127.0.0.1:5000/api/reply?userId=1&text=%27123s%27&username=555&commentsid=29
+    let querySqlStr = "INSERT INTO reply(text, comments_id, user_id, user_name,goods_id) VALUES (?, ?, ?, ?,?)";
+    if (superiorid !== null && superiorid !== undefined) {
+        data.push(superiorid);
+        //这里是回复评论
+        //http://127.0.0.1:5000/api/reply?userId=1&text=666&username=555&commentsid=29&superiorid=1
+        querySqlStr = "INSERT INTO reply(text, comments_id, user_id, user_name,goods_id,superior_id) VALUES (?, ?, ?, ?,?,?)";
+    }
+    console.log(data)
+    conn.query(querySqlStr, data, (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '添加数据失败' });
+        } else {
+            results = JSON.parse(JSON.stringify(results));
+            res.json({ success_code: 200, message: results });
+        }
+    });
+});
+
+//订单状态暂定 5是退货，6是换货，其他未知，没有值的是正常订单
+//exchange_order_goods:订单退换货表，状态 1是申请退货中 ，2是申请换货中。 3同意退货，4同意换货，5是退货完成状态 6是换货完成状态  其他状态未设定
+//申请换货//申请退货
+router.get('/api/exchangeOrderGoods', (req, res) => {
+    let userId = req.query.userId
+    let ordergoodsid = req.query.ordergoodsid   //订单产品id
+    let orderid = req.query.orderid   //订单id
+    let count = req.query.count     //数量
+    let price = req.query.price     //发生退换货的金额，换货可以 null / 0
+    let state = req.query.state     //1是申请退货中 ，2是申请换货中。 3同意退货，4同意换货，5是退货完成状态 6是换货完成状态  其他状态未设定
+    let data = [ordergoodsid, orderid, userId, count, price, state];        //state是退货表的状态
+    console.log(data)
+
+    if (state != 1 || state != 2) {
+        res.json({ err_code: 0, message: '非法操作！' });
+        return;
+    }
+    let querySqlStr = "INSERT INTO exchange_order_goods(order_goods_id,order_id, user_id, count, price,state) VALUES (?, ?, ?, ?,?,?)";
+    conn.query(querySqlStr, data, (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '添加数据失败' });
+        } else {
+            conn.query("update order_goods set state = 1 where id =" + ordergoodsid, (error, results) => {
+                if (error) {
+                    console.log(error);
+                    res.json({ err_code: 0, message: '更新订单产品状态失败' });
+                } else {
+                    results = JSON.parse(JSON.stringify(results));
+                    res.json({ success_code: 200, message: "操作成功！" });
+                }
+            });
+            conn.query("update order_info set state = 1 where id =" + orderid, (error, results) => {
+                if (error) {
+                    console.log(error);
+                    res.json({ err_code: 0, message: '更新订单状态失败' });
+                } else {
+                    results = JSON.parse(JSON.stringify(results));
+                    res.json({ success_code: 200, message: "操作成功！" });
+                }
+            });
+        }
+    });
+});
+
+//同意退货/换货
+router.get('/api/handleExchangeOrderGoods', (req, res) => {
+    let exchangeordergoodsid = req.query.exchangeordergoodsid   //退货/换货 售后表id
+    conn.query("select * from exchange_order_goods where id =" + exchangeordergoodsid, (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '添加数据失败' });
+        } else {
+            let id = results[0].id
+            if (id > 0) {
+                let s = 4;
+                if (results[0].state == 1) {
+                    s = 5;
+                }
+                if (results[0].state == 2) {
+                    s = 4;
+                }
+                conn.query("update exchange_order_goods set state = " + s + " where id =" + id, (error, results) => {
+                    if (error) {
+                        console.log(error);
+                        res.json({ err_code: 0, message: '更新状态失败' });
+                    } else {
+                        results = JSON.parse(JSON.stringify(results));
+                        res.json({ success_code: 200, message: "操作成功！" });
+                    }
+                });
+            }
+
+        }
+    });
+});
+
+//获取退换货记录
+router.get('/api/exchangeOrderGoodsList', (req, res) => {
+    let ordergoodsid = req.query.ordergoodsid       //订单产品id
+    let orderid = req.query.orderid                 //订单id
+    let id = req.query.id                           //退换货表id
+    let querySqlStr = 'select * from exchange_order_goods as eog INNER JOIN order_goods as og on og.id = eog.order_goods_id INNER JOIN recommend as r on r.goods_id = og.goods_id';
+    if (orderid > 0 && ordergoodsid > 0)
+        querySqlStr += ` where eog.order_id = ${orderid} or eog.order_goods_id = ${ordergoodsid}`;
+    else if (orderid > 0)
+        querySqlStr += `where eog.order_id = ${orderid} `;
+    else if (ordergoodsid > 0)
+        querySqlStr += ` where eog.order_goods_id = ${ordergoodsid} `;
+    else if (id > 0)
+        querySqlStr = ` where eog.id = ${id} `;
+    else {
+        // querySqlStr = `select * from exchange_order_goods `;
+        // res.json({ err_code: 0, message: '请求数据失败,参数必填！' });
+        // return;
+    }
+    conn.query(querySqlStr, (error, results, fields) => {
+        if (error) {
+            console.log(error);
+            res.json({ err_code: 0, message: '请求数据失败' });
+        } else {
+            results = JSON.parse(JSON.stringify(results));
+            res.json({ success_code: 200, message: results });
+        }
+    });
+});
+
+
+//end
 
 /**
  * 获取首页商品列表
@@ -263,8 +433,7 @@ router.get('/api/goodsdetail', (req, res) => {
 router.get('/api/goodscomment', (req, res) => {
     // 获取参数
     let goodsId = req.query.goodsId;
-
-    let sqlStr = 'SELECT user_info.id, user_info.user_name, user_info.user_nickname, comments.comment_detail, comments.comment_id, comments.comment_rating, comments.goods_id FROM user_info INNER JOIN comments ON user_info.id = comments.user_id WHERE goods_id = ' + goodsId;
+    let sqlStr = `SELECT * FROM comments WHERE goods_id=${goodsId}`;
     conn.query(sqlStr, (error, results, fields) => {
         if (!error) {
             results = JSON.parse(JSON.stringify(results));
@@ -282,21 +451,36 @@ router.post('/api/postcomment', (req, res) => {
     let comment_detail = req.body.comment_detail;
     let comment_rating = req.body.comment_rating;
     let user_id = req.body.user_id;
-    const addSql = "INSERT INTO comments(goods_id, comment_detail, comment_rating, user_id) VALUES (?, ?, ?, ?)";
-    const addSqlParams = [goods_id, comment_detail, comment_rating, user_id];
-    conn.query(addSql, addSqlParams, (error, results, fields) => {
+    let user_name = req.body.user_name;
+    
+    let addSql = "INSERT INTO comments(goods_id, comment_detail, comment_rating, user_id, user_name) VALUES (?, ?, ?, ?, ?)";
+    let addSqlParams = [goods_id, comment_detail, comment_rating, user_id, user_name];
+    conn.query(addSql, addSqlParams, (error, results) => {
         results = JSON.parse(JSON.stringify(results));
-        if (!error) {
-            // 更新数据
-            let sqlStr = "UPDATE recommend SET comments_count = comments_count + 1 WHERE goods_id = " + goods_id;
-            conn.query(sqlStr, (error, results, fields) => {
-                if (error) {
-                    console.log(error);
-                } else {
-                    res.json({ success_code: 200, message: "发布成功" });
-                }
-            });
-        }
+        if (error) {
+			console.log(error);
+		} else {
+			res.json({ success_code: 200, message: "发布成功" });
+		}
+    });
+});
+
+/**
+  回复评论商品
+*/
+router.post('/api/recomment', (req, res) => {
+    // 获取参数
+    let comment_id = req.body.comment_id;
+    let re_txt = req.body.re_txt;
+    let addSql = "UPDATE comments SET re_txt = ? WHERE comment_id = ?";
+    let addSqlParams = [re_txt, comment_id];
+    conn.query(addSql, addSqlParams, (error, results) => {
+        if (error) {
+			console.log(error);
+			res.json({ err_code: 0, message: '修改用户信息失败!' });
+		} else {
+			res.json({ success_code: 200, message: '回复成功!' });
+		}
     });
 });
 

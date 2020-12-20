@@ -42,7 +42,7 @@
 </style>
   <style>
     .mouse-cover-canvas{
-      left: 800px!important;
+      left: 50vw!important;
     }
   </style>
 

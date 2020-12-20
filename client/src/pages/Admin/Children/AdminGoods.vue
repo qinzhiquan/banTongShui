@@ -3,17 +3,7 @@
     <el-card>
       <el-form :inline="true" class="demo-form-inline">
         <el-form-item label="商品名称">
-          <el-select v-model="searchForm.category" clearable filterable placeholder="请选择">
-            <el-option
-              v-for="item in options"
-              :key="item.cate_id"
-              :label="item.cate_name"
-              :value="item.cate_id">
-            </el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="商品分类">
-          <el-input v-model="searchForm.name" placeholder="商品名称"></el-input>
+          <el-input v-model="searchName" clearable filterable placeholder="商品名称"></el-input>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>
@@ -21,8 +11,6 @@
       </el-form>
     </el-card>
     <el-table
-      :summary-method="getSummaries"
-      show-summary
       :data="tempData"
       style="width: 100%">
       <el-table-column type="expand">
@@ -53,15 +41,15 @@
         </template>
       </el-table-column>
       <el-table-column
-        label="ID"
-        prop="goods_id" width=50>
+        type="index"
+        width="50">
       </el-table-column>
       <el-table-column
         label="名称"
         prop="short_name" width=150>
       </el-table-column>
-      <el-table-column label="销量" prop="sum(goods_count)" width=150>
-      </el-table-column>
+        <!--<el-table-column label="销量" prop="sum(goods_count)" width=150>-->
+      <!--</el-table-column>-->
       <el-table-column label="状态" prop="isActive" width=150>
         <template slot-scope="props">
           <span>{{ props.row.isActive?'上架中':'下架中' }}</span>
@@ -71,21 +59,24 @@
         label="描述"
         prop="goods_name">
       </el-table-column>
-      <!--<el-table-column label="操作">-->
-        <!--<template slot-scope="props">-->
-          <!--<el-button-->
-            <!--size="mini"-->
-            <!--@click="handleEdit(props.$index, props.row)">编辑</el-button>-->
-          <!--<el-button-->
-            <!--size="mini"-->
-            <!--type="primary"-->
-            <!--@click="handleChange(props.$index, props.row)">{{ props.row.isActive?'下架':'上架' }}</el-button>-->
-          <!--<el-button-->
-            <!--size="mini"-->
-            <!--type="danger"-->
-            <!--@click="handleDelete(props.$index, props.row)">删除</el-button>-->
-        <!--</template>-->
-      <!--</el-table-column>-->
+      <el-table-column label="操作">
+        <template slot-scope="props">
+          <el-button
+            size="mini"
+            @click="lookTxt(props.row)">查看评论</el-button>
+          <el-button
+            size="mini"
+            @click="handleEdit(props.$index, props.row)">编辑</el-button>
+          <el-button
+            size="mini"
+            type="primary"
+            @click="handleChange(props.$index, props.row)">{{ props.row.isActive?'下架':'上架' }}</el-button>
+          <el-button
+            size="mini"
+            type="danger"
+            @click="handleDelete(props.$index, props.row)">删除</el-button>
+        </template>
+      </el-table-column>
     </el-table>
     <el-pagination
       background
@@ -93,65 +84,88 @@
       :page-count="pageNum"
       @current-change="handleCurrentChange">
     </el-pagination>
+    <el-dialog
+      title="查看评论"
+      :visible.sync="txtDialogVisible"
+      width="80%"
+      center>
+      <el-table
+        :data="txtList"
+        style="width: 100%">
+        <el-table-column prop="user_name" label="用户"></el-table-column>
+        <el-table-column prop="comment_rating" label="评价(星)"></el-table-column>
+        <el-table-column prop="comment_detail" label="评论"></el-table-column>
+
+        <el-table-column prop="orderStatus" label="回复评论">
+          <template slot-scope="scope">
+            <el-input v-model="scope.row.re_txt"></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column prop="orderStatus" label="操作">
+          <template slot-scope="scope">
+            <el-button @click="reTxtBtn(scope.row)">回复</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <span slot="footer" class="dialog-footer">
+    <el-button type="primary" @click="txtDialogVisible = false">关 闭</el-button>
+  </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-  import {changeGoodsInfo, getAllgoods,deleteRecomGoods, searchgoods2, getCategory } from './../../../api/index';
+  import {changeGoodsInfo, getAllgoods,deleteRecomGoods, searchgoods2,
+    goodscomment,//查看商品评论
+    recomment,//回复评论
+  } from './../../../api/index';
   import {mapState} from 'vuex';
   import {mapActions} from 'vuex'
 
   export default {
     data() {
       return {
-        options: [],//商品分类
-        searchForm: {},//搜索栏数据
+        searchName: '',
         category: ['热门男鞋','热门女鞋','服饰、箱包','电子产品','美食宝典'],
         currentIndex: 1,
         pageSize: 5,
         tableData: [],
         tempData: [],
+        txtDialogVisible: false,//查看评论
+        txtList: [],//评论列表
       }
     },
     mounted(){
       this.getAllGoods();
-      //获取商品分类
-      getCategory().then(res=>{
-        this.options = res.message
-      })
     },
     methods: {
-      // 销量统计
-      getSummaries(param) {
-        const { columns, data } = param;
-        const sums = [];
-        columns.forEach((column, index) => {
-          if (index === 2) {
-            sums[index] = '销量统计';
-          }else if(index == 3){
-            const values = data.map(item => Number(item[column.property]));
-            if (!values.every(value => isNaN(value))) {
-              sums[index] = values.reduce((prev, curr) => {
-                const value = Number(curr);
-                if (!isNaN(value)) {
-                  return prev + curr;
-                } else {
-                  return prev;
-                }
-              }, 0);
-            } else {
-              sums[index] = 'N/A';
-            }
+      // 回复评论
+      reTxtBtn(row){
+        let data = {
+          comment_id: row.comment_id,
+          re_txt: row.re_txt,
+
+        }
+        recomment(data).then(res=>{
+          if(res.success_code == 200){
+            this.$message.success('回复成功')
           }
-
-        });
-
-        return sums;
+        })
+      },
+      // 查看评论
+      lookTxt(row){
+        let data = {
+          goodsId: row.goods_id
+        }
+        goodscomment(data).then(res=>{
+          this.txtList = res.message
+          this.txtDialogVisible = true
+        })
       },
       // 搜索商品
       async search(){
         this.tempData = []
-        let result = await searchgoods2(this.searchForm);
+        let result = await searchgoods2({name: this.searchName});
         if(result.success_code === 200){
           this.tableData = result.message;
           this.tableData.forEach((data,index)=>{
@@ -167,9 +181,9 @@
         let result = await changeGoodsInfo(row);
         if(result.success_code === 200){
           this.$message({
-            type: 'success',
-            message: row.isActive?'上架成功':'下架成功'
-          });
+              type: 'success',
+              message: row.isActive?'上架成功':'下架成功'
+            });
           this.$router.replace('/admin');
           getAllgoods();
         }
@@ -187,7 +201,7 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).then( async() => {
-          let result = await deleteRecomGoods(row.goods_id);
+		  let result = await deleteRecomGoods(row.goods_id);
           if(result.success_code === 200){
             this.$message({
               type: 'success',

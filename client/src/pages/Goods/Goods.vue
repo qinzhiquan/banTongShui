@@ -4,13 +4,13 @@
 				<div class="pro_img">
           <div class="showimg">
             <!--要放大的图片,最好用盒子装起来-->
-            <pic-zoom :url="goodsDetail[0].image_url" :scale="3"></pic-zoom>
+            <pic-zoom style="max-height: 300px;max-width: 500px;" :url="goodsDetail[0].image_url" :scale="3"></pic-zoom>
           </div>
           <!--<el-image style="width: 100%" :preview-src-list="[goodsDetail[0].image_url]" :src="goodsDetail[0].image_url" class="pro_middle_img"></el-image>-->
 					<!--<div class="tb_booth">-->
-            <!--&lt;!&ndash;<img-zoom :src="goodsDetail[0].image_url" width="450" height="250" bigsrc="img-big.jpg"></img-zoom>&ndash;&gt;-->
-            <!--&lt;!&ndash;<el-image :src="goodsDetail[0].image_url" class="pro_middle_img"></el-image>&ndash;&gt;-->
-            <!--&lt;!&ndash;<pic-zoom :scale="2" :url="goodsDetail[0].image_url"></pic-zoom>&ndash;&gt;-->
+            <!--<img-zoom :src="goodsDetail[0].image_url" width="450" height="250" bigsrc="img-big.jpg"></img-zoom>-->
+            <!--<el-image :src="goodsDetail[0].image_url" class="pro_middle_img"></el-image>-->
+            <!--<pic-zoom :scale="2" :url="goodsDetail[0].image_url"></pic-zoom>-->
 					<!--</div>-->
 				</div>
 				<div class="pro_meg">
@@ -70,14 +70,16 @@
 					</div>
 				</div>
 			</div>
-      <div class="pro_comment">
+      <el-card class="pro_comment" style="margin-top: 100px">
         <h3>商品评价</h3>
         <div v-if="goodsDetail[0].comments_count">
           <div class="media" v-for="(comment, index) in goodsComment" :key="index">
             <div class="media-body">
               <h6 class="media-heading" v-if="comment.user_nickname">用户:&nbsp;{{ comment.user_nickname }}</h6>
-              <h6 class="media-heading" v-else>用户:&nbsp;{{ comment.user_name | nameFormat }}</h6>
+              <h6 class="media-heading" v-else>用户:&nbsp;{{ comment.user_name }}</h6>
               <span>评论:</span>&nbsp;{{comment.comment_detail}}
+
+              <p v-if="comment.re_txt">时刻腕表回复: {{comment.re_txt}}</p>
               <el-rate
                 v-model="comment.comment_rating"
                 disabled
@@ -92,8 +94,8 @@
             本商品暂无评论
           </div>
         </div>
-      </div>
-      <div class="pro_judge" v-if="userInfo.user_name">
+      </el-card>
+      <div class="pro_judge" v-if="userInfo.user_name" style="margin-bottom: 50px">
         <h3>评价该商品</h3>
         <span>为该商品评分</span>
         <el-rate
@@ -114,10 +116,6 @@
         <h3>评价该商品</h3>
         <span class="judge_erro_tip">登录后才可发表评论</span>
       </div>
-    <!--<div id="footer">-->
-      <!--<img src="../Home/img/footer.png" height="117" width="2073"/>-->
-      <!--<div class="footer_text"></div>-->
-    <!--</div>-->
 	</div>
 </template>
 
@@ -177,6 +175,8 @@
     },
     methods:{
       async post(){
+        console.log(this.goodsComment);
+        console.log(this.userInfo);
         if(!this.textarea){
            MessageBox({
               type: 'info',
@@ -185,7 +185,8 @@
            });
            return;
         }
-        let result =  await postComment(this.goodsDetail[0].goods_id, this.textarea, this.rating, this.userInfo.id);
+
+        let result =  await postComment(this.goodsDetail[0].goods_id, this.textarea, this.rating, this.userInfo.id, this.userInfo.user_name);
         if(result.success_code === 200){
           MessageBox({
               type: 'success',

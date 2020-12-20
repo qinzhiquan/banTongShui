@@ -37,7 +37,7 @@ export const getGoodsDetail = (params) => ajax(BASE_URL + '/api/goodsdetail', pa
 export const getGoodsComment = (params) => ajax(BASE_URL + '/api/goodscomment', params);
 
 // 发布评论
-export const postComment = (goods_id, comment_detail, comment_rating, user_id) => ajax(BASE_URL + '/api/postcomment', {goods_id, comment_detail, comment_rating, user_id}, 'POST');
+export const postComment = (goods_id, comment_detail, comment_rating, user_id, user_name) => ajax(BASE_URL + '/api/postcomment', {goods_id, comment_detail, comment_rating, user_id, user_name}, 'POST');
 
 // 请求短信验证码
 export const getPhoneCode = (phone) => ajax(BASE_URL + '/api/send_code', {phone});
@@ -122,3 +122,28 @@ export const updateOrder = ( id,orderStatus) => ajax(BASE_URL + '/api/updateorde
 
 // 获取用户订单
 export const getUserOrder = ( userId, goodsName, categoryId) => ajax(BASE_URL + '/api/get_user_order', {userId, goodsName, categoryId}, 'POST');
+
+
+// 获取单个用户订单
+export const getOrderList = ( userId) => ajax(BASE_URL + '/api/orderList', {userId}, 'GET');
+
+// 获取订单商品
+export const getGoodsList = ( orderId) => ajax(BASE_URL + '/api/goodsList', {orderId}, 'GET');
+
+// 用户申请退换货
+export const exchangeOrderGoods = ( data ) => ajax(BASE_URL + '/api/exchangeOrderGoods', data, 'GET');
+
+// 商家同意退换货
+export const handleExchangeOrderGoods = ( data ) => ajax(BASE_URL + '/api/handleExchangeOrderGoods', data, 'GET');
+
+// 查询客户信息
+export const getuser = ( data ) => ajax(BASE_URL + '/api/getuser', data, 'GET');
+
+// 查看商品评论
+export const goodscomment = ( data ) => ajax(BASE_URL + '/api/goodscomment', data, 'GET');
+
+// 回复评论
+export const recomment = ( data ) => ajax(BASE_URL + '/api/recomment', data, 'POST');
+
+// 获取退换货记录
+export const exchangeOrderGoodsList = ( data ) => ajax(BASE_URL + '/api/exchangeOrderGoodsList', data, 'GET');

@@ -2,8 +2,8 @@
   <div>
     <el-card>
       <el-form :inline="true" class="demo-form-inline">
-        <el-form-item label="商品分类">
-          <el-select v-model="searchForm.categoryId" clearable filterable placeholder="请选择">
+        <el-form-item label="商品名称">
+          <el-select v-model="searchForm.category" clearable filterable placeholder="请选择">
             <el-option
               v-for="item in options"
               :key="item.cate_id"
@@ -12,47 +12,81 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="商品名称">
-          <el-input v-model="searchForm.goodsName" placeholder="商品名称"></el-input>
+        <el-form-item label="商品分类">
+          <el-input v-model="searchForm.name" placeholder="商品名称"></el-input>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>
         </el-form-item>
       </el-form>
     </el-card>
-    <!--:summary-method="getSummaries"-->
-    <!--show-summary-->
     <el-table
-
+      :summary-method="getSummaries"
+      show-summary
       :data="tempData"
       style="width: 100%">
-      <el-table-column
-        type="index"
-        width=50>
-      </el-table-column>
-      <el-table-column label="商品名称" prop="goods_name" width=300></el-table-column>
-      <el-table-column label="商品价格" prop="goods_price" width=150></el-table-column>
-      <el-table-column label="购买数量" prop="goods_count" width=150></el-table-column>
-      <el-table-column prop="orderStatus" label="订单状态">
-        <template slot-scope="scope">
-          <span v-if="scope.row.orderStatus == 1">待发货</span>
-          <span v-if="scope.row.orderStatus == 2">发货</span>
-          <span v-if="scope.row.orderStatus == 3">退货</span>
-          <span v-if="scope.row.orderStatus == 4">已收货</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="商品图片" prop="isActive" width=150>
+      <el-table-column type="expand">
         <template slot-scope="props">
-          <img :src="props.row.image_url" style="width:70px"/>
+          <el-form label-position="left" inline class="demo-table-expand">
+            <el-form-item label="商品名称">
+              <span>{{ props.row.short_name }}</span>
+            </el-form-item>
+            <el-form-item label="商品 ID">
+              <span>{{ props.row.goods_id }}</span>
+            </el-form-item>
+            <el-form-item label="商品分类">
+              <span>{{ category[props.row.category - 1] }}</span>
+            </el-form-item>
+            <el-form-item label="商品价格">
+              <span>{{ (props.row.price / 100) | priceFormat}}</span>
+            </el-form-item>
+            <el-form-item label="商品库存">
+              <span>{{ props.row.counts }}</span>
+            </el-form-item>
+            <el-form-item label="商品描述">
+              <span>{{ props.row.goods_name }}</span>
+            </el-form-item>
+            <el-form-item label="商品图片">
+              <img :src="props.row.thumb_url" style="width:70px"/>
+            </el-form-item>
+          </el-form>
         </template>
       </el-table-column>
-
-      <el-table-column label="操作" width="250">
-        <template slot-scope="scope">
-
-          <el-button @click="deliverGoode(scope.row, 4)" size="mini">确认到货</el-button>
+      <el-table-column
+        type="index" width=50>
+      </el-table-column>
+      <el-table-column label="名称" prop="short_name" width=150 />
+      <el-table-column label="销量" prop="sum(goods_count)" width=150 />
+      <el-table-column label="单价" prop="price" width=150 />
+      <el-table-column label="销售额" prop="sum(goods_count)" width=150>
+        <template slot-scope="props">
+          <span>{{ props.row['sum(goods_count)']? props.row['sum(goods_count)'] * props.row.price: 0 }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="状态" prop="isActive" width=150>
+        <template slot-scope="props">
+          <span>{{ props.row.isActive?'上架中':'下架中' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        label="描述"
+        prop="goods_name">
+      </el-table-column>
+      <!--<el-table-column label="操作">-->
+        <!--<template slot-scope="props">-->
+          <!--<el-button-->
+            <!--size="mini"-->
+            <!--@click="handleEdit(props.$index, props.row)">编辑</el-button>-->
+          <!--<el-button-->
+            <!--size="mini"-->
+            <!--type="primary"-->
+            <!--@click="handleChange(props.$index, props.row)">{{ props.row.isActive?'下架':'上架' }}</el-button>-->
+          <!--<el-button-->
+            <!--size="mini"-->
+            <!--type="danger"-->
+            <!--@click="handleDelete(props.$index, props.row)">删除</el-button>-->
+        <!--</template>-->
+      <!--</el-table-column>-->
     </el-table>
     <el-pagination
       background
@@ -64,14 +98,7 @@
 </template>
 
 <script>
-  import {
-    changeGoodsInfo,
-    getAllgoods,deleteRecomGoods,
-    searchgoods2,
-    getCategory,
-    getUserOrder,
-    updateOrder,//确认收货
-  } from './../../../api/index';
+  import {changeGoodsInfo, getAllgoods,deleteRecomGoods, searchgoods2, getCategory } from './../../../api/index';
   import {mapState} from 'vuex';
   import {mapActions} from 'vuex'
 
@@ -79,11 +106,7 @@
     data() {
       return {
         options: [],//商品分类
-        searchForm: {
-          userId: null,
-          goodsName: '',
-          categoryId: ''
-        },//搜索栏数据
+        searchForm: {},//搜索栏数据
         category: ['热门男鞋','热门女鞋','服饰、箱包','电子产品','美食宝典'],
         currentIndex: 1,
         pageSize: 5,
@@ -92,26 +115,13 @@
       }
     },
     mounted(){
-      this.getUserOrderFun();
+      this.getAllGoods();
       //获取商品分类
       getCategory().then(res=>{
         this.options = res.message
       })
     },
     methods: {
-      // 确认收货
-      async deliverGoode(row, number){
-        console.log(row);
-        // return;
-        let result = await updateOrder(row.id,number);
-        if(result.success_code === 200){
-          this.$message({
-            type: 'success',
-            message: '修改状态成功'
-          });
-          row.orderStatus = number
-        }
-      },
       // 销量统计
       getSummaries(param) {
         const { columns, data } = param;
@@ -130,9 +140,32 @@
                   return prev;
                 }
               }, 0);
+              sums[index] += '份'
             } else {
               sums[index] = 'N/A';
             }
+          }else if(index == 5){
+            console.log(data);
+            sums[index] = 0
+            data.forEach(item=>{
+              if(item['sum(goods_count)']){
+                sums[index] += item['sum(goods_count)'] * item.price
+              }
+            })
+
+            sums[index] += '元'
+            // if (!values.every(value => isNaN(value))) {
+            //   sums[index] = values.reduce((prev, curr) => {
+            //     const value = Number(curr);
+            //     if (!isNaN(value)) {
+            //       return prev + curr;
+            //     } else {
+            //       return prev;
+            //     }
+            //   }, 0);
+            // } else {
+            //   sums[index] = 'N/A';
+            // }
           }
 
         });
@@ -142,10 +175,7 @@
       // 搜索商品
       async search(){
         this.tempData = []
-        let userId = JSON.parse(window.localStorage.getItem("userInfo")).id;
-        console.log(JSON.parse(window.localStorage.getItem("userInfo")));
-        console.log(this.searchForm);
-        let result = await getUserOrder(userId, this.searchForm.goodsName, this.searchForm.categoryId);
+        let result = await searchgoods2(this.searchForm);
         if(result.success_code === 200){
           this.tableData = result.message;
           this.tableData.forEach((data,index)=>{
@@ -205,10 +235,9 @@
           }
         });
       },
-      async getUserOrderFun(){
+      async getAllGoods(){
         this.tempData = []
-        let userId = JSON.parse(window.localStorage.getItem("userInfo")).id
-        let result = await getUserOrder(userId);
+        let result = await getAllgoods();
         if(result.success_code === 200){
           this.tableData = result.message;
           this.tableData.forEach((data,index)=>{
